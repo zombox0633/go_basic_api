@@ -2,8 +2,12 @@ package basicService
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/zombox0633/api/constraints"
 	"github.com/zombox0633/api/utils"
@@ -23,6 +27,80 @@ func getNextID() int {
 		}
 	}
 	return highestId + 1
+}
+
+// Func สำหรับการหาข้อมูลจาก id ที่ส่งมา
+// return ออก 2 ค่าคือ ตัวแรกคือ ข้อมูลที่ใช้ pointer ข้อมูลหนึ่งตัวใน PetList และ index ของ pat
+func findId(id int) (*constraints.PetType, int) { // *😺 ของน้องใช้ส่วนของ return เป็น Pet (ค่าชนิดข้อมูลหนึ่งตัว) และ PetList (หลายตัว)
+	for i, pat := range constraints.PetList {
+		if pat.Id == id {
+			return &pat, i
+		}
+	}
+	return nil, -1 //ใส่ -1 เพื่อบอกว่าไม่มีข้อมูลอยู่ใน PetList
+}
+
+func petByIdHandler(w http.ResponseWriter, r *http.Request) {
+	//ทำการตัด url แยกเป็นส่วน ๆ จาก http://localhost:5000/pet/id จะได้ค่า ["http://localhost:5000/","id"]
+	urlPathSegment := strings.Split(r.URL.Path, "pet/")
+
+	// urlPathSegment[len(urlPathSegment)-1] เลือกตำแหน่งสุดใน array จะได้ตัว id
+	//จากนั้นเอา id ที่เป็น string ให้เป็น int จากคำสั่ง strconv.Atoi()
+	id, err := strconv.Atoi(urlPathSegment[len(urlPathSegment)-1])
+
+	if err != nil {
+		log.Print(err)
+		//ทำการส่งไปให้ HandleWriteHeader ส่ง error ให้โดยตัว utils เอิททำเอง
+		utils.HandleWriteHeader(w, err, http.StatusNotFound)
+		return
+	}
+	pet, index := findId(id)
+	if index == -1 {
+		http.Error(w, fmt.Sprintf("no pet width id : %d", index), http.StatusNotFound)
+
+		return
+	}
+
+	switch r.Method {
+	// get by id
+	case http.MethodGet:
+		petJson, err := json.Marshal(pet) //นำค่า pet มาแปลงเป็น json
+		utils.HandleWriteHeader(w, err, http.StatusNotFound)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(petJson)
+		return
+
+	//แก้ไขข้อมูล pet โดยใช้ id
+	case http.MethodPut:
+		var updatePet constraints.PetType
+
+		//ตัว ioutil.ReadAll ถูก deprecated  จึงใช้  io.ReadAll()
+		byteBody, err := io.ReadAll(r.Body)
+		utils.HandleWriteHeader(w, err, http.StatusBadRequest)
+
+		//แปลงค่า json ให้เป็น struct
+		err = json.Unmarshal(byteBody, &updatePet)
+		// utils.HandleWriteHeader(w, err, http.StatusBadRequest)
+
+		//ถ้าค่าที่รับ ไม่เท่ากับ id ที่ใช้ใน URL จะ error
+		if updatePet.Id != id {
+			utils.HandleWriteHeader(w, err, http.StatusBadRequest)
+			return
+		}
+
+		constraints.PetList[index] = updatePet
+
+		w.Header().Set("Content-Type", "application/json")
+		// json.Marshal() + w.Write()  เขียน JSON ลง w ได้โดยตรง
+		json.NewEncoder(w).Encode(updatePet)
+		return
+	default:
+		//405 Method Not Allowed
+		w.WriteHeader(http.StatusMethodNotAllowed)
+
+	}
+
 }
 
 // Func Handler สำหรับเรียกใช้งาน Method CRUD
@@ -73,4 +151,7 @@ func petHandler(w http.ResponseWriter, r *http.Request) {
 func WorkRequest() {
 	//ประกาศ path และเรียกใช้งาน handler(Function การทำงานของ method ต่างๆ)
 	http.HandleFunc("/pet", petHandler)
+
+	//การต่อ path by id
+	http.HandleFunc("/pet/", petByIdHandler)
 }

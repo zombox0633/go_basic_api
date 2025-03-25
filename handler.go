@@ -13,9 +13,14 @@ func greet(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Println("Starting server on 😸 : 5000...")
 	// demojson.DemoJSon()
 	basicService.WorkRequest()
 
 	http.HandleFunc("/", greet)
-	http.ListenAndServe(":5000", nil)
+	err := http.ListenAndServe(":5000", nil)
+	if err != nil {
+		fmt.Println("Error starting server:", err)
+	}
+
 }

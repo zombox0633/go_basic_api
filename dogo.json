@@ -1,4 +1,4 @@
-{
+{ 
   "WorkingDir": ".",
   "SourceDir": [
       "."
@@ -6,5 +6,6 @@
   "SourceExt": [".go"],
   "BuildCmd": "go build -o handler.exe",
   "RunCmd": "./handler",
-  "Decreasing": 1
+  "Decreasing": 1,
+  "RedirectStdout": true
 }

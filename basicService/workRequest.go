@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/zombox0633/api/constraints"
+	"github.com/zombox0633/api/middleware"
 	"github.com/zombox0633/api/utils"
 )
 
@@ -186,9 +187,12 @@ func petHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func WorkRequest() {
+	fmt.Println("Registering Handlers...")
+
 	//ประกาศ path และเรียกใช้งาน handler(Function การทำงานของ method ต่างๆ)
-	http.HandleFunc("/pet", petHandler)
+	//ประกาศใช้งาน middleware
+	http.HandleFunc("/pet", middleware.LoggingMiddleware(petHandler))
 
 	//การต่อ path by id
-	http.HandleFunc("/pet/", petByIDHandler)
+	http.HandleFunc("/pet/", middleware.LoggingMiddleware(petByIDHandler))
 }
